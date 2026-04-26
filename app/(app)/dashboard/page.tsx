@@ -8,17 +8,19 @@ import {
   getCategoryBreakdown,
   getDailyTrend,
   getCurrentMonthTransactions,
+  getOutstandingTotal,
 } from "@/lib/queries";
 import { formatINR } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [kpis, breakdown, trend, transactions] = await Promise.all([
+  const [kpis, breakdown, trend, transactions, outstanding] = await Promise.all([
     getKpis(),
     getCategoryBreakdown(),
     getDailyTrend(30),
     getCurrentMonthTransactions(),
+    getOutstandingTotal(),
   ]);
 
   const now = new Date();
@@ -30,7 +32,7 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground">{format(now, "MMMM yyyy")}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiCard
           label="This month"
           value={formatINR(kpis.monthTotal)}
@@ -45,6 +47,11 @@ export default async function DashboardPage() {
           label="This year"
           value={formatINR(kpis.yearTotal)}
           hint={format(now, "yyyy")}
+        />
+        <KpiCard
+          label="Owed to me"
+          value={formatINR(outstanding)}
+          hint={outstanding > 0 ? "Unpaid splits" : "All settled"}
         />
       </div>
 

@@ -27,10 +27,13 @@ import { rankCategoriesByMatch } from "@/lib/categorize";
 import { formatINR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { useCategories } from "@/components/categories-provider";
+import { SplitInput, type SplitDraft } from "@/components/split-input";
 
 export function AddExpenseFab() {
   const [open, setOpen] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
@@ -45,8 +48,12 @@ export function AddExpenseFab() {
         <Plus className="size-6" />
       </SheetTrigger>
       <SheetContent
-        side="right"
-        className="w-full overflow-y-auto sm:max-w-md"
+        side={isDesktop ? "right" : "bottom"}
+        className={
+          isDesktop
+            ? "w-full overflow-y-auto sm:max-w-md"
+            : "max-h-[90dvh] overflow-y-auto"
+        }
         showCloseButton={false}
       >
         <SheetHeader className="text-left">
@@ -70,6 +77,7 @@ function AddExpenseForm({ onDone }: { onDone: () => void }) {
   const [date, setDate] = useState<Date>(new Date());
   const [submitting, setSubmitting] = useState(false);
   const [showDate, setShowDate] = useState(false);
+  const [splits, setSplits] = useState<SplitDraft[]>([]);
 
   const parsed = useMemo(() => parseInput(raw), [raw]);
 
@@ -85,26 +93,84 @@ function AddExpenseForm({ onDone }: { onDone: () => void }) {
 
   const canSubmit = !!parsed && !!effectiveCategoryId && !submitting;
 
+  const splitsTotal = splits.reduce((acc, s) => acc + s.amount, 0);
+  const splitsOverflow = !!parsed && splitsTotal > parsed.amount + 0.01;
+
   const handleSubmit = async () => {
     if (!canSubmit || !parsed || !effectiveCategoryId) return;
-    setSubmitting(true);
-    const supabase = createClient();
-    const { error } = await supabase.from("transactions").insert({
-      amount: parsed.amount,
-      description: parsed.description || null,
-      category_id: effectiveCategoryId,
-      occurred_on: format(date, "yyyy-MM-dd"),
-    });
-    setSubmitting(false);
-    if (error) {
-      toast.error("Couldn't save", { description: error.message });
+    if (splitsOverflow) {
+      toast.error("Splits exceed the total");
       return;
     }
+    setSubmitting(true);
+    const supabase = createClient();
+    const { data: tx, error } = await supabase
+      .from("transactions")
+      .insert({
+        amount: parsed.amount,
+        description: parsed.description || null,
+        category_id: effectiveCategoryId,
+        occurred_on: format(date, "yyyy-MM-dd"),
+      })
+      .select("id")
+      .single();
+    if (error || !tx) {
+      setSubmitting(false);
+      toast.error("Couldn't save", { description: error?.message });
+      return;
+    }
+
+    if (splits.length > 0) {
+      // Resolve any chips that don't have a person row yet (new names) by
+      // upserting into people, then build the splits payload.
+      const newNames = splits.filter((s) => !s.personId).map((s) => s.name);
+      let nameToId = new Map<string, string>();
+      if (newNames.length > 0) {
+        const { data: created, error: peopleErr } = await supabase
+          .from("people")
+          .upsert(
+            newNames.map((name) => ({ name })),
+            { onConflict: "owner_email,name" },
+          )
+          .select("id, name");
+        if (peopleErr) {
+          setSubmitting(false);
+          toast.error("Couldn't save people", { description: peopleErr.message });
+          return;
+        }
+        nameToId = new Map((created ?? []).map((p) => [p.name, p.id]));
+      }
+      const payload = splits
+        .filter((s) => s.amount > 0)
+        .map((s) => ({
+          transaction_id: tx.id,
+          person_id: s.personId ?? nameToId.get(s.name)!,
+          amount: s.amount,
+          paid_at: s.paidAt,
+        }));
+      if (payload.length > 0) {
+        const { error: splitErr } = await supabase
+          .from("transaction_splits")
+          .insert(payload);
+        if (splitErr) {
+          setSubmitting(false);
+          toast.error("Saved expense, but splits failed", {
+            description: splitErr.message,
+          });
+          onDone();
+          router.refresh();
+          return;
+        }
+      }
+    }
+
+    setSubmitting(false);
     toast.success(`Saved ${formatINR(parsed.amount)} · ${effectiveCategory?.name}`);
     setRaw("");
     setManualPick(null);
     setDate(new Date());
     setShowDate(false);
+    setSplits([]);
     onDone();
     router.refresh();
   };
@@ -234,6 +300,14 @@ function AddExpenseForm({ onDone }: { onDone: () => void }) {
             </>
           )}
         </div>
+      )}
+
+      {parsed && (
+        <SplitInput
+          total={parsed.amount}
+          value={splits}
+          onChange={setSplits}
+        />
       )}
 
       <SheetFooter className="flex-row gap-2 px-0">

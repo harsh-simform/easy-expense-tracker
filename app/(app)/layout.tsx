@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { listCategories } from "@/lib/queries";
+import { listCategories, listPeople } from "@/lib/queries";
 import { CategoriesProvider } from "@/components/categories-provider";
+import { PeopleProvider } from "@/components/people-provider";
 import { DesktopSidebar, MobileBottomNav } from "@/components/nav";
 import { SignOutMenu } from "@/components/sign-out-menu";
 import { AddExpenseFab } from "@/components/add-expense-fab";
@@ -21,10 +22,11 @@ export default async function AppLayout({
     redirect("/sign-in");
   }
 
-  const categories = await listCategories();
+  const [categories, people] = await Promise.all([listCategories(), listPeople()]);
 
   return (
     <CategoriesProvider categories={categories}>
+      <PeopleProvider people={people}>
       <div className="flex min-h-dvh">
         <DesktopSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
@@ -46,6 +48,7 @@ export default async function AppLayout({
         <MobileBottomNav />
         <AddExpenseFab />
       </div>
+      </PeopleProvider>
     </CategoriesProvider>
   );
 }

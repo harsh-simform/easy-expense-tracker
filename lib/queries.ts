@@ -8,6 +8,7 @@ import {
 } from "@/lib/format";
 import type {
   Category,
+  Person,
   Transaction,
   TransactionWithCategory,
 } from "@/types/database";
@@ -21,6 +22,26 @@ export async function listCategories(): Promise<Category[]> {
     .order("sort_order", { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function listPeople(): Promise<Person[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("people")
+    .select("*")
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getOutstandingTotal(): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transaction_splits")
+    .select("amount")
+    .is("paid_at", null);
+  if (error) throw error;
+  return (data ?? []).reduce((acc, r) => acc + Number(r.amount), 0);
 }
 
 export async function getKpis() {
@@ -56,7 +77,9 @@ export async function getCurrentMonthTransactions(): Promise<TransactionWithCate
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("transactions")
-    .select("*, category:categories(id,name,icon,color)")
+    .select(
+      "*, category:categories(id,name,icon,color), splits:transaction_splits(*, person:people(id,name))",
+    )
     .gte("occurred_on", startOfMonthISO())
     .lte("occurred_on", endOfMonthISO())
     .order("occurred_on", { ascending: false })
@@ -73,7 +96,9 @@ export async function getTransactionsInRange(
   const supabase = await createClient();
   let q = supabase
     .from("transactions")
-    .select("*, category:categories(id,name,icon,color)")
+    .select(
+      "*, category:categories(id,name,icon,color), splits:transaction_splits(*, person:people(id,name))",
+    )
     .gte("occurred_on", from)
     .lte("occurred_on", to)
     .order("occurred_on", { ascending: false })

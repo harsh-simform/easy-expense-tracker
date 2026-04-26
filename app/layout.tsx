@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { ServiceWorkerRegister } from "@/components/sw-register";
 import "./globals.css";
 
 // Inter — Stripe / Linear / most fintech default. Excellent legibility at small
@@ -22,6 +23,13 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Easy Expense Tracker",
   description: "Personal expense tracker",
+  applicationName: "Easy Expense Tracker",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Expenses",
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -43,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         {children}
         <Toaster richColors position="top-center" />
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

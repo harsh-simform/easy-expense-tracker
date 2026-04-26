@@ -117,6 +117,69 @@ export type Database = {
           },
         ];
       };
+      people: {
+        Row: {
+          id: string;
+          owner_email: string;
+          name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_email?: string;
+          name: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_email?: string;
+          name?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      transaction_splits: {
+        Row: {
+          id: string;
+          transaction_id: string;
+          person_id: string;
+          amount: number;
+          paid_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          transaction_id: string;
+          person_id: string;
+          amount: number;
+          paid_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          transaction_id?: string;
+          person_id?: string;
+          amount?: number;
+          paid_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transaction_splits_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_splits_person_id_fkey";
+            columns: ["person_id"];
+            isOneToOne: false;
+            referencedRelation: "people";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -128,7 +191,15 @@ export type Database = {
 export type Category = Database["public"]["Tables"]["categories"]["Row"];
 export type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 export type Budget = Database["public"]["Tables"]["budgets"]["Row"];
+export type Person = Database["public"]["Tables"]["people"]["Row"];
+export type TransactionSplit =
+  Database["public"]["Tables"]["transaction_splits"]["Row"];
+
+export type SplitWithPerson = TransactionSplit & {
+  person: Pick<Person, "id" | "name"> | null;
+};
 
 export type TransactionWithCategory = Transaction & {
   category: Pick<Category, "id" | "name" | "icon" | "color"> | null;
+  splits?: SplitWithPerson[];
 };

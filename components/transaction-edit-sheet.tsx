@@ -22,7 +22,9 @@ import { Calendar } from "@/components/ui/calendar";
 
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { useCategories } from "@/components/categories-provider";
+import { SplitInput, type SplitDraft } from "@/components/split-input";
 import type { TransactionWithCategory } from "@/types/database";
 
 export function TransactionEditSheet({
@@ -32,11 +34,16 @@ export function TransactionEditSheet({
   transaction: TransactionWithCategory | null;
   onClose: () => void;
 }) {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   return (
     <Sheet open={!!transaction} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
-        side="right"
-        className="w-full overflow-y-auto sm:max-w-md"
+        side={isDesktop ? "right" : "bottom"}
+        className={
+          isDesktop
+            ? "w-full overflow-y-auto sm:max-w-md"
+            : "max-h-[90dvh] overflow-y-auto"
+        }
       >
         <SheetHeader>
           <SheetTitle>Edit expense</SheetTitle>
@@ -67,6 +74,34 @@ function EditForm({
   const [date, setDate] = useState<Date>(parseISO(transaction.occurred_on));
   const [busy, setBusy] = useState(false);
   const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
+  const [splits, setSplits] = useState<SplitDraft[]>(
+    (transaction.splits ?? []).map((s) => ({
+      id: s.id,
+      personId: s.person?.id ?? null,
+      name: s.person?.name ?? "(removed)",
+      amount: Number(s.amount),
+      paidAt: s.paid_at,
+    })),
+  );
+
+  const togglePaid = async (split: SplitDraft, paid: boolean) => {
+    if (!split.id) return;
+    const supabase = createClient();
+    const paid_at = paid ? new Date().toISOString() : null;
+    const { error } = await supabase
+      .from("transaction_splits")
+      .update({ paid_at })
+      .eq("id", split.id);
+    if (error) {
+      toast.error("Couldn't update", { description: error.message });
+      return;
+    }
+    setSplits((prev) =>
+      prev.map((s) => (s.id === split.id ? { ...s, paidAt: paid_at } : s)),
+    );
+    toast.success(paid ? "Marked paid" : "Marked unpaid");
+    router.refresh();
+  };
 
   const handleSave = async () => {
     const amt = Number(amount);
@@ -76,6 +111,11 @@ function EditForm({
     }
     if (!categoryId) {
       toast.error("Pick a category");
+      return;
+    }
+    const splitsTotal = splits.reduce((acc, s) => acc + s.amount, 0);
+    if (splitsTotal > amt + 0.01) {
+      toast.error("Splits exceed the total");
       return;
     }
     setBusy(true);
@@ -89,11 +129,84 @@ function EditForm({
         occurred_on: format(date, "yyyy-MM-dd"),
       })
       .eq("id", transaction.id);
-    setBusy(false);
     if (error) {
+      setBusy(false);
       toast.error("Couldn't update", { description: error.message });
       return;
     }
+
+    // Diff splits: delete removed rows, upsert kept/new ones. New names that
+    // don't exist in `people` yet get inserted first.
+    const originalIds = new Set(
+      (transaction.splits ?? []).map((s) => s.id),
+    );
+    const keptIds = new Set(
+      splits.filter((s) => s.id).map((s) => s.id as string),
+    );
+    const toDelete = [...originalIds].filter((id) => !keptIds.has(id));
+    if (toDelete.length > 0) {
+      const { error: delErr } = await supabase
+        .from("transaction_splits")
+        .delete()
+        .in("id", toDelete);
+      if (delErr) {
+        setBusy(false);
+        toast.error("Couldn't update splits", { description: delErr.message });
+        return;
+      }
+    }
+
+    const newNames = splits.filter((s) => !s.personId).map((s) => s.name);
+    let nameToId = new Map<string, string>();
+    if (newNames.length > 0) {
+      const { data: created, error: peopleErr } = await supabase
+        .from("people")
+        .upsert(
+          newNames.map((name) => ({ name })),
+          { onConflict: "owner_email,name" },
+        )
+        .select("id, name");
+      if (peopleErr) {
+        setBusy(false);
+        toast.error("Couldn't save people", { description: peopleErr.message });
+        return;
+      }
+      nameToId = new Map((created ?? []).map((p) => [p.name, p.id]));
+    }
+
+    // Update existing rows (amount may have changed) and insert new ones.
+    const existing = splits.filter((s) => s.id);
+    const fresh = splits.filter((s) => !s.id && s.amount > 0);
+    if (existing.length > 0) {
+      for (const s of existing) {
+        const { error: upErr } = await supabase
+          .from("transaction_splits")
+          .update({ amount: s.amount })
+          .eq("id", s.id!);
+        if (upErr) {
+          setBusy(false);
+          toast.error("Couldn't update split", { description: upErr.message });
+          return;
+        }
+      }
+    }
+    if (fresh.length > 0) {
+      const { error: insErr } = await supabase.from("transaction_splits").insert(
+        fresh.map((s) => ({
+          transaction_id: transaction.id,
+          person_id: s.personId ?? nameToId.get(s.name)!,
+          amount: s.amount,
+          paid_at: s.paidAt,
+        })),
+      );
+      if (insErr) {
+        setBusy(false);
+        toast.error("Couldn't save splits", { description: insErr.message });
+        return;
+      }
+    }
+
+    setBusy(false);
     toast.success("Updated");
     onClose();
     router.refresh();
@@ -194,6 +307,12 @@ function EditForm({
             </PopoverContent>
           </Popover>
         </div>
+        <SplitInput
+          total={Number(amount) || 0}
+          value={splits}
+          onChange={setSplits}
+          onTogglePaid={togglePaid}
+        />
       </div>
       <SheetFooter className="flex-row gap-2">
         <Button
