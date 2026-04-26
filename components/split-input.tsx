@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Check, Plus, Users, X } from "lucide-react";
+import { ArrowRight, Check, Plus, Users, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +96,18 @@ export function SplitInput({
     onChange(value.map((s, i) => (i === idx ? { ...s, amount } : s)));
   };
 
+  // "Take all": this person absorbs the remainder of the expense — i.e. their
+  // share = total minus everyone else's share. With one chip, that's the whole
+  // amount. With multiple, it lets you say "Alice owes ₹200, Bob takes the rest".
+  const takeAll = (idx: number) => {
+    const others = value.reduce(
+      (acc, s, i) => (i === idx ? acc : acc + s.amount),
+      0,
+    );
+    const remainder = Math.max(0, total - others);
+    onChange(value.map((s, i) => (i === idx ? { ...s, amount: remainder } : s)));
+  };
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -117,9 +129,16 @@ export function SplitInput({
         </span>
         {value.length > 0 && (
           <span className="text-xs text-muted-foreground">
-            Your share: <span className="font-medium tabular-nums text-foreground">
-              {formatINR(yourShare)}
-            </span>
+            {yourShare === 0 && total > 0 ? (
+              <span className="font-medium text-foreground">Paid for them</span>
+            ) : (
+              <>
+                Your share:{" "}
+                <span className="font-medium tabular-nums text-foreground">
+                  {formatINR(yourShare)}
+                </span>
+              </>
+            )}
           </span>
         )}
       </div>
@@ -139,6 +158,16 @@ export function SplitInput({
                 onChange={(e) => updateAmount(idx, Number(e.target.value) || 0)}
                 className="h-7 w-24 text-right tabular-nums"
               />
+              <button
+                type="button"
+                onClick={() => takeAll(idx)}
+                disabled={total <= 0}
+                className="flex h-7 items-center gap-0.5 rounded-md border px-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+                title="Whole expense for this person"
+              >
+                All
+                <ArrowRight className="size-3" />
+              </button>
               {onTogglePaid && s.id && (
                 <Button
                   type="button"

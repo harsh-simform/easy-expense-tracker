@@ -2,13 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListOrdered, Wallet, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  ListOrdered,
+  Wallet,
+  HandCoins,
+  Settings,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: ListOrdered },
   { href: "/budgets", label: "Budgets", icon: Wallet },
+  { href: "/owed", label: "Owed", icon: HandCoins },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -51,7 +58,7 @@ export function DesktopSidebar() {
 export function MobileBottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t bg-card/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-card/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
       {items.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(href + "/");
         return (

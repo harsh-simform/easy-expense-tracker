@@ -44,6 +44,19 @@ export async function getOutstandingTotal(): Promise<number> {
   return (data ?? []).reduce((acc, r) => acc + Number(r.amount), 0);
 }
 
+// Effective spent: transaction.amount minus what others owe you for it (whether
+// they've paid you back yet or not — settled splits are someone else's expense
+// that just happened to flow through your wallet, so they don't belong in your
+// "spent" total).
+type RowWithSplits = {
+  amount: number;
+  splits: { amount: number }[] | null;
+};
+const effectiveAmount = (r: RowWithSplits) => {
+  const splitsTotal = (r.splits ?? []).reduce((a, s) => a + Number(s.amount), 0);
+  return Math.max(0, Number(r.amount) - splitsTotal);
+};
+
 export async function getKpis() {
   const supabase = await createClient();
   const today = new Date();
@@ -53,18 +66,18 @@ export async function getKpis() {
   const [{ data: monthRows }, { data: yearRows }] = await Promise.all([
     supabase
       .from("transactions")
-      .select("amount")
+      .select("amount, splits:transaction_splits(amount)")
       .gte("occurred_on", monthStart)
       .lte("occurred_on", todayISO()),
     supabase
       .from("transactions")
-      .select("amount")
+      .select("amount, splits:transaction_splits(amount)")
       .gte("occurred_on", yearStart)
       .lte("occurred_on", todayISO()),
   ]);
 
-  const sum = (rows: { amount: number }[] | null) =>
-    (rows ?? []).reduce((acc, r) => acc + Number(r.amount), 0);
+  const sum = (rows: RowWithSplits[] | null) =>
+    (rows ?? []).reduce((acc, r) => acc + effectiveAmount(r), 0);
 
   const monthTotal = sum(monthRows);
   const yearTotal = sum(yearRows);
@@ -122,7 +135,9 @@ export async function getCategoryBreakdown(): Promise<CategoryBreakdown[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("transactions")
-    .select("amount, category:categories(id,name,color)")
+    .select(
+      "amount, splits:transaction_splits(amount), category:categories(id,name,color)",
+    )
     .gte("occurred_on", startOfMonthISO())
     .lte("occurred_on", endOfMonthISO());
   if (error) throw error;
@@ -130,18 +145,20 @@ export async function getCategoryBreakdown(): Promise<CategoryBreakdown[]> {
   const map = new Map<string, CategoryBreakdown>();
   for (const row of (data ?? []) as Array<{
     amount: number;
+    splits: { amount: number }[] | null;
     category: { id: string; name: string; color: string | null } | null;
   }>) {
     const key = row.category?.id ?? "uncategorized";
     const existing = map.get(key);
+    const eff = effectiveAmount(row);
     if (existing) {
-      existing.total += Number(row.amount);
+      existing.total += eff;
     } else {
       map.set(key, {
         categoryId: row.category?.id ?? null,
         categoryName: row.category?.name ?? "Uncategorized",
         color: row.category?.color ?? null,
-        total: Number(row.amount),
+        total: eff,
       });
     }
   }
@@ -158,7 +175,7 @@ export async function getDailyTrend(days = 30) {
 
   const { data, error } = await supabase
     .from("transactions")
-    .select("amount, occurred_on")
+    .select("amount, occurred_on, splits:transaction_splits(amount)")
     .gte("occurred_on", fromISO)
     .lte("occurred_on", toISO);
   if (error) throw error;
@@ -169,8 +186,11 @@ export async function getDailyTrend(days = 30) {
     d.setDate(from.getDate() + i);
     buckets.set(d.toISOString().slice(0, 10), 0);
   }
-  for (const r of (data ?? []) as { amount: number; occurred_on: string }[]) {
-    buckets.set(r.occurred_on, (buckets.get(r.occurred_on) ?? 0) + Number(r.amount));
+  for (const r of (data ?? []) as Array<RowWithSplits & { occurred_on: string }>) {
+    buckets.set(
+      r.occurred_on,
+      (buckets.get(r.occurred_on) ?? 0) + effectiveAmount(r),
+    );
   }
   return [...buckets.entries()].map(([date, total]) => ({ date, total }));
 }
@@ -196,7 +216,7 @@ export async function getBudgetProgress(): Promise<BudgetProgress[]> {
     supabase.from("budgets").select("*").lte("effective_from", todayISO()),
     supabase
       .from("transactions")
-      .select("amount, category_id")
+      .select("amount, category_id, splits:transaction_splits(amount)")
       .gte("occurred_on", monthStart)
       .lte("occurred_on", endOfMonthISO()),
   ]);
@@ -213,9 +233,14 @@ export async function getBudgetProgress(): Promise<BudgetProgress[]> {
   }
 
   const spentByCat = new Map<string, number>();
-  for (const t of (txs ?? []) as { amount: number; category_id: string | null }[]) {
+  for (const t of (txs ?? []) as Array<
+    RowWithSplits & { category_id: string | null }
+  >) {
     if (!t.category_id) continue;
-    spentByCat.set(t.category_id, (spentByCat.get(t.category_id) ?? 0) + Number(t.amount));
+    spentByCat.set(
+      t.category_id,
+      (spentByCat.get(t.category_id) ?? 0) + effectiveAmount(t),
+    );
   }
 
   return ((cats ?? []) as Pick<Category, "id" | "name" | "color">[]).map((c) => ({
@@ -225,6 +250,82 @@ export async function getBudgetProgress(): Promise<BudgetProgress[]> {
     monthlyLimit: latestBudgetByCat.get(c.id) ?? 0,
     spent: spentByCat.get(c.id) ?? 0,
   }));
+}
+
+export type OutstandingSplitRow = {
+  splitId: string;
+  amount: number;
+  paidAt: string | null;
+  transaction: {
+    id: string;
+    description: string | null;
+    occurredOn: string;
+    totalAmount: number;
+    categoryName: string | null;
+    categoryColor: string | null;
+  };
+};
+
+export type OutstandingByPerson = {
+  personId: string;
+  personName: string;
+  total: number;
+  splits: OutstandingSplitRow[];
+};
+
+export async function getOutstandingByPerson(): Promise<OutstandingByPerson[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transaction_splits")
+    .select(
+      "id, amount, paid_at, person:people(id,name), transaction:transactions(id,description,occurred_on,amount,category:categories(name,color))",
+    )
+    .is("paid_at", null)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  type Row = {
+    id: string;
+    amount: number;
+    paid_at: string | null;
+    person: { id: string; name: string } | null;
+    transaction: {
+      id: string;
+      description: string | null;
+      occurred_on: string;
+      amount: number;
+      category: { name: string; color: string | null } | null;
+    } | null;
+  };
+
+  const grouped = new Map<string, OutstandingByPerson>();
+  for (const r of (data ?? []) as unknown as Row[]) {
+    if (!r.person || !r.transaction) continue;
+    const bucket =
+      grouped.get(r.person.id) ??
+      ({
+        personId: r.person.id,
+        personName: r.person.name,
+        total: 0,
+        splits: [] as OutstandingSplitRow[],
+      } satisfies OutstandingByPerson);
+    bucket.total += Number(r.amount);
+    bucket.splits.push({
+      splitId: r.id,
+      amount: Number(r.amount),
+      paidAt: r.paid_at,
+      transaction: {
+        id: r.transaction.id,
+        description: r.transaction.description,
+        occurredOn: r.transaction.occurred_on,
+        totalAmount: Number(r.transaction.amount),
+        categoryName: r.transaction.category?.name ?? null,
+        categoryColor: r.transaction.category?.color ?? null,
+      },
+    });
+    grouped.set(r.person.id, bucket);
+  }
+  return [...grouped.values()].sort((a, b) => b.total - a.total);
 }
 
 export type { Transaction, TransactionWithCategory, Category };
