@@ -54,8 +54,8 @@ export function AddExpenseFab() {
         <Plus className="size-6" />
       </SheetTrigger>
       <SheetContent
-        side="bottom"
-        className="max-h-[90dvh] overflow-y-auto sm:mx-auto sm:max-w-md"
+        side="right"
+        className="w-full overflow-y-auto sm:max-w-md"
         showCloseButton={false}
       >
         <SheetHeader className="text-left">

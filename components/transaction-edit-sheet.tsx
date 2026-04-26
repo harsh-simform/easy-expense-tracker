@@ -41,8 +41,8 @@ export function TransactionEditSheet({
   return (
     <Sheet open={!!transaction} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
-        side="bottom"
-        className="max-h-[90dvh] overflow-y-auto sm:mx-auto sm:max-w-md"
+        side="right"
+        className="w-full overflow-y-auto sm:max-w-md"
       >
         <SheetHeader>
           <SheetTitle>Edit expense</SheetTitle>
