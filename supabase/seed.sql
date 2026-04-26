@@ -1,0 +1,2 @@
+-- Reserved for future local-dev seeding (additional sample data, etc.).
+-- Schema and the allowed_email() function live in supabase/migrations/.
