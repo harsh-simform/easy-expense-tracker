@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Sparkles, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Sparkles, Calendar as CalendarIcon, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -19,22 +19,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
 import { parseInput } from "@/lib/parse-input";
 import { rankCategoriesByMatch } from "@/lib/categorize";
 import { formatINR } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useCategories } from "@/components/categories-provider";
 
@@ -161,54 +152,47 @@ function AddExpenseForm({ onDone }: { onDone: () => void }) {
               </span>
             )}
           </div>
-          <Select
-            value={effectiveCategoryId ?? ""}
-            onValueChange={(v) => v && setManualPick({ raw, id: v })}
-          >
-            <SelectTrigger className="h-10 w-full">
-              <SelectValue placeholder="Select a category">
-                {(value) => {
-                  const cat = categories.find((c) => c.id === value);
-                  if (!cat) return "Select a category";
-                  return (
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="size-2 rounded-full"
-                        style={{ backgroundColor: cat.color ?? "#888" }}
-                      />
-                      {cat.name}
-                    </span>
-                  );
-                }}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
+          <div className="relative">
+            {effectiveCategory && (
+              <span
+                className="pointer-events-none absolute left-3 top-1/2 size-2 -translate-y-1/2 rounded-full"
+                style={{ backgroundColor: effectiveCategory.color ?? "#888" }}
+              />
+            )}
+            <select
+              value={effectiveCategoryId ?? ""}
+              onChange={(e) => e.target.value && setManualPick({ raw, id: e.target.value })}
+              className={cn(
+                "h-10 w-full appearance-none rounded-lg border border-input bg-transparent pr-8 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30",
+                effectiveCategory ? "pl-7" : "pl-2.5",
+              )}
+            >
+              {!effectiveCategoryId && (
+                <option value="" disabled>
+                  Select a category
+                </option>
+              )}
               {suggested.length > 0 && (
-                <>
-                  <SelectGroup>
-                    <SelectLabel className="flex items-center gap-1">
-                      <Sparkles className="size-3" />
-                      Suggested
-                    </SelectLabel>
-                    {suggested.map((c) => (
-                      <CategoryOption key={c.id} category={c} />
-                    ))}
-                  </SelectGroup>
-                  {rest.length > 0 && <SelectSeparator />}
-                </>
+                <optgroup label="Suggested">
+                  {suggested.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </optgroup>
               )}
               {rest.length > 0 && (
-                <SelectGroup>
-                  <SelectLabel>
-                    {suggested.length > 0 ? "All categories" : "Categories"}
-                  </SelectLabel>
+                <optgroup label={suggested.length > 0 ? "All categories" : "Categories"}>
                   {rest.map((c) => (
-                    <CategoryOption key={c.id} category={c} />
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
-                </SelectGroup>
+                </optgroup>
               )}
-            </SelectContent>
-          </Select>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
         </div>
       )}
 
@@ -261,23 +245,5 @@ function AddExpenseForm({ onDone }: { onDone: () => void }) {
         </Button>
       </SheetFooter>
     </div>
-  );
-}
-
-function CategoryOption({
-  category,
-}: {
-  category: { id: string; name: string; color: string | null };
-}) {
-  return (
-    <SelectItem value={category.id}>
-      <span className="flex items-center gap-2">
-        <span
-          className="size-2 rounded-full"
-          style={{ backgroundColor: category.color ?? "#888" }}
-        />
-        {category.name}
-      </span>
-    </SelectItem>
   );
 }

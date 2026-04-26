@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar as CalendarIcon, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 
@@ -17,17 +17,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { useCategories } from "@/components/categories-provider";
 import type { TransactionWithCategory } from "@/types/database";
 
@@ -72,6 +66,7 @@ function EditForm({
   const [categoryId, setCategoryId] = useState(transaction.category_id ?? "");
   const [date, setDate] = useState<Date>(parseISO(transaction.occurred_on));
   const [busy, setBusy] = useState(false);
+  const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
 
   const handleSave = async () => {
     const amt = Number(amount);
@@ -149,38 +144,34 @@ function EditForm({
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Category</Label>
-          <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select category">
-                {(value) => {
-                  const cat = categories.find((c) => c.id === value);
-                  if (!cat) return "Select category";
-                  return (
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="size-2 rounded-full"
-                        style={{ backgroundColor: cat.color ?? "#888" }}
-                      />
-                      {cat.name}
-                    </span>
-                  );
-                }}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
+          <div className="relative">
+            {selectedCategory && (
+              <span
+                className="pointer-events-none absolute left-3 top-1/2 size-2 -translate-y-1/2 rounded-full"
+                style={{ backgroundColor: selectedCategory.color ?? "#888" }}
+              />
+            )}
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className={cn(
+                "h-9 w-full appearance-none rounded-lg border border-input bg-transparent pr-8 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30",
+                selectedCategory ? "pl-7" : "pl-2.5",
+              )}
+            >
+              {!categoryId && (
+                <option value="" disabled>
+                  Select category
+                </option>
+              )}
               {categories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="size-2 rounded-full"
-                      style={{ backgroundColor: c.color ?? "#888" }}
-                    />
-                    {c.name}
-                  </span>
-                </SelectItem>
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
-            </SelectContent>
-          </Select>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Date</Label>
