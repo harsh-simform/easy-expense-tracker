@@ -1,17 +1,17 @@
 import {
   getKpis,
   getCategoryBreakdown,
-  listIncomeSources,
-  type CategoryBreakdown,
+  listRecurringFlows,
+  monthlyEquivalent,
 } from "@/lib/queries";
-import type { IncomeSource } from "@/types/database";
+import type { RecurringFlow } from "@/types/database";
 
 export type AlertSeverity = "ok" | "watch" | "warning" | "critical";
 
 export type SpendingAlert = {
   enabled: boolean;
   severity: AlertSeverity;
-  salary: number;
+  income: number;
   obligations: number;
   discretionaryBudget: number;
   monthSpent: number;
@@ -35,16 +35,16 @@ const inr = (n: number) =>
     maximumFractionDigits: 0,
   }).format(Math.max(0, Math.round(n)));
 
-function totalsFromSources(sources: IncomeSource[]) {
-  let salary = 0;
+function totals(flows: RecurringFlow[]) {
+  let income = 0;
   let obligations = 0;
-  for (const s of sources) {
-    if (!s.active) continue;
-    const amt = Number(s.amount);
-    if (s.kind === "salary") salary += amt;
-    else if (s.kind === "sip" || s.kind === "investment") obligations += amt;
+  for (const f of flows) {
+    if (!f.active) continue;
+    const monthly = monthlyEquivalent(f);
+    if (f.direction === "income") income += monthly;
+    else obligations += monthly;
   }
-  return { salary, obligations };
+  return { income, obligations };
 }
 
 function pickSeverity(
@@ -84,7 +84,7 @@ function buildActions(
 
   if (obligations > 0) {
     actions.push(
-      `Remember ${inr(obligations)} is locked in for SIPs/investments — protect it before any extra spend.`,
+      `Remember ${inr(obligations)} is locked in for SIPs / EMIs / rent — protect it before any extra spend.`,
     );
   }
 
@@ -114,18 +114,18 @@ export async function getSpendingAlert(): Promise<SpendingAlert> {
   const dayOfMonth = now.getDate();
   const daysRemaining = Math.max(0, daysInMonth - dayOfMonth);
 
-  const [kpis, breakdown, sources] = await Promise.all([
+  const [kpis, breakdown, flows] = await Promise.all([
     getKpis(),
     getCategoryBreakdown(),
-    listIncomeSources(),
+    listRecurringFlows(),
   ]);
 
-  const { salary, obligations } = totalsFromSources(sources);
+  const { income, obligations } = totals(flows);
 
   const empty: SpendingAlert = {
     enabled: false,
     severity: "ok",
-    salary: 0,
+    income: 0,
     obligations: 0,
     discretionaryBudget: 0,
     monthSpent: 0,
@@ -142,9 +142,9 @@ export async function getSpendingAlert(): Promise<SpendingAlert> {
     topCategories: [],
   };
 
-  if (salary <= 0) return empty;
+  if (income <= 0) return empty;
 
-  const discretionaryBudget = Math.max(0, salary - obligations);
+  const discretionaryBudget = Math.max(0, income - obligations);
   const monthSpent = kpis.monthTotal;
   const proratedBudget = discretionaryBudget * (dayOfMonth / daysInMonth);
   const projectedMonthEnd = (monthSpent / Math.max(1, dayOfMonth)) * daysInMonth;
@@ -155,11 +155,8 @@ export async function getSpendingAlert(): Promise<SpendingAlert> {
   const safeRemaining = Math.max(0, discretionaryBudget - monthSpent);
   const safeDailyRemaining = daysRemaining > 0 ? safeRemaining / daysRemaining : 0;
 
-  const totalForShare = (breakdown as CategoryBreakdown[]).reduce(
-    (a, c) => a + c.total,
-    0,
-  );
-  const topCategories = (breakdown as CategoryBreakdown[]).slice(0, 3).map((c) => ({
+  const totalForShare = breakdown.reduce((a, c) => a + c.total, 0);
+  const topCategories = breakdown.slice(0, 3).map((c) => ({
     name: c.categoryName,
     total: c.total,
     share: totalForShare > 0 ? c.total / totalForShare : 0,
@@ -176,12 +173,12 @@ export async function getSpendingAlert(): Promise<SpendingAlert> {
   const message =
     severity === "ok"
       ? `Spent ${inr(monthSpent)} of ${inr(discretionaryBudget)} discretionary so far — within the prorated ${inr(proratedBudget)} for day ${dayOfMonth}.`
-      : `Spent ${inr(monthSpent)} by day ${dayOfMonth} vs a prorated ${inr(proratedBudget)} (${Math.round(overshootPct * 100)}% over). At this pace, month-end lands at ~${inr(projectedMonthEnd)} against a discretionary budget of ${inr(discretionaryBudget)} (salary ${inr(salary)} − obligations ${inr(obligations)}).`;
+      : `Spent ${inr(monthSpent)} by day ${dayOfMonth} vs a prorated ${inr(proratedBudget)} (${Math.round(overshootPct * 100)}% over). At this pace, month-end lands at ~${inr(projectedMonthEnd)} against ${inr(discretionaryBudget)} discretionary (income ${inr(income)} − recurring outflows ${inr(obligations)}).`;
 
   return {
     enabled: true,
     severity,
-    salary,
+    income,
     obligations,
     discretionaryBudget,
     monthSpent,

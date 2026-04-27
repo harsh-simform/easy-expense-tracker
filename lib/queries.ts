@@ -8,8 +8,9 @@ import {
 } from "@/lib/format";
 import type {
   Category,
-  IncomeSource,
+  FlowDirection,
   Person,
+  RecurringFlow,
   Transaction,
   TransactionWithCategory,
 } from "@/types/database";
@@ -25,15 +26,25 @@ export async function listCategories(): Promise<Category[]> {
   return data ?? [];
 }
 
-export async function listIncomeSources(): Promise<IncomeSource[]> {
+export async function listRecurringFlows(
+  direction?: FlowDirection,
+): Promise<RecurringFlow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("income_sources")
+  let q = supabase
+    .from("recurring_flows")
     .select("*")
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
+  if (direction) q = q.eq("direction", direction);
+  const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as IncomeSource[];
+  return (data ?? []) as RecurringFlow[];
+}
+
+// Convert any flow's amount to a per-month figure regardless of frequency.
+export function monthlyEquivalent(flow: Pick<RecurringFlow, "amount" | "frequency">) {
+  const n = Number(flow.amount);
+  return flow.frequency === "yearly" ? n / 12 : n;
 }
 
 export async function listPeople(): Promise<Person[]> {
@@ -340,4 +351,4 @@ export async function getOutstandingByPerson(): Promise<OutstandingByPerson[]> {
   return [...grouped.values()].sort((a, b) => b.total - a.total);
 }
 
-export type { Transaction, TransactionWithCategory, Category };
+export type { Transaction, TransactionWithCategory, Category, RecurringFlow };

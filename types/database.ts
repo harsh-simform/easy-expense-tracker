@@ -8,6 +8,46 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+export type FlowDirection = "income" | "outcome";
+export type FlowFrequency = "monthly" | "yearly";
+
+export type IncomeKind =
+  | "salary"
+  | "bonus"
+  | "rsu"
+  | "freelance"
+  | "consulting"
+  | "rental_income"
+  | "interest_savings"
+  | "fd_interest"
+  | "dividend"
+  | "spouse_contribution"
+  | "other_income";
+
+export type OutcomeKind =
+  | "sip"
+  | "elss"
+  | "ppf"
+  | "nps"
+  | "epf_voluntary"
+  | "rd"
+  | "stocks"
+  | "home_loan"
+  | "car_loan"
+  | "personal_loan"
+  | "education_loan"
+  | "rent"
+  | "term_insurance"
+  | "health_insurance"
+  | "society_maintenance"
+  | "credit_card"
+  | "subscription"
+  | "school_fees"
+  | "utilities"
+  | "other_outcome";
+
+export type FlowKind = IncomeKind | OutcomeKind;
+
 export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "12.2.3";
@@ -138,13 +178,15 @@ export type Database = {
         };
         Relationships: [];
       };
-      income_sources: {
+      recurring_flows: {
         Row: {
           id: string;
           owner_email: string;
-          kind: "salary" | "sip" | "investment" | "other";
+          direction: FlowDirection;
+          kind: FlowKind;
           label: string;
           amount: number;
+          frequency: FlowFrequency;
           active: boolean;
           sort_order: number;
           created_at: string;
@@ -153,9 +195,11 @@ export type Database = {
         Insert: {
           id?: string;
           owner_email?: string;
-          kind: "salary" | "sip" | "investment" | "other";
+          direction: FlowDirection;
+          kind: FlowKind;
           label: string;
           amount: number;
+          frequency?: FlowFrequency;
           active?: boolean;
           sort_order?: number;
           created_at?: string;
@@ -164,9 +208,11 @@ export type Database = {
         Update: {
           id?: string;
           owner_email?: string;
-          kind?: "salary" | "sip" | "investment" | "other";
+          direction?: FlowDirection;
+          kind?: FlowKind;
           label?: string;
           amount?: number;
+          frequency?: FlowFrequency;
           active?: boolean;
           sort_order?: number;
           created_at?: string;
@@ -230,9 +276,8 @@ export type Budget = Database["public"]["Tables"]["budgets"]["Row"];
 export type Person = Database["public"]["Tables"]["people"]["Row"];
 export type TransactionSplit =
   Database["public"]["Tables"]["transaction_splits"]["Row"];
-export type IncomeSource =
-  Database["public"]["Tables"]["income_sources"]["Row"];
-export type IncomeSourceKind = IncomeSource["kind"];
+export type RecurringFlow =
+  Database["public"]["Tables"]["recurring_flows"]["Row"];
 
 export type SplitWithPerson = TransactionSplit & {
   person: Pick<Person, "id" | "name"> | null;

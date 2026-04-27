@@ -7,7 +7,8 @@ import {
   ListOrdered,
   Wallet,
   HandCoins,
-  Briefcase,
+  TrendingUp,
+  TrendingDown,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,9 +16,10 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", short: "Txns", icon: ListOrdered },
-  { href: "/budgets", label: "Budgets", short: "Budgets", icon: Wallet },
+  { href: "/budgets", label: "Budgets", short: "Budget", icon: Wallet },
   { href: "/owed", label: "Owed", short: "Owed", icon: HandCoins },
-  { href: "/sources", label: "Sources", short: "Sources", icon: Briefcase },
+  { href: "/income", label: "Income", short: "Income", icon: TrendingUp },
+  { href: "/outcome", label: "Outcome", short: "Outflow", icon: TrendingDown },
   { href: "/settings", label: "Settings", short: "More", icon: Settings },
 ];
 
@@ -60,7 +62,7 @@ export function DesktopSidebar() {
 export function MobileBottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t bg-card/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 border-t bg-card/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
       {items.map(({ href, short, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(href + "/");
         return (
@@ -68,11 +70,11 @@ export function MobileBottomNav() {
             key={href}
             href={href}
             className={cn(
-              "flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px]",
+              "flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-[9px]",
               active ? "text-foreground" : "text-muted-foreground",
             )}
           >
-            <Icon className={cn("size-5", active && "text-primary")} />
+            <Icon className={cn("size-[18px]", active && "text-primary")} />
             <span className="w-full truncate text-center">{short}</span>
           </Link>
         );
