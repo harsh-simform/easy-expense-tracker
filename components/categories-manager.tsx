@@ -95,38 +95,26 @@ function CategoryRow({ category }: { category: Category }) {
 
   return (
     <Card>
-      <CardContent className="space-y-3 px-4 py-3">
+      <CardContent className="space-y-4 px-4 py-3">
         <div className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="size-6 shrink-0 rounded-full ring-1 ring-foreground/10"
+            style={{ backgroundColor: color }}
+          />
           <Input
             value={name}
             onChange={(e) => {
               setName(e.target.value);
               setDirty(true);
             }}
-            className="h-9 max-w-xs"
+            className="h-9 min-w-0 flex-1"
+            aria-label="Category name"
           />
-          <div className="flex items-center gap-1">
-            {SWATCHES.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => {
-                  setColor(c);
-                  setDirty(true);
-                }}
-                className="size-5 rounded-full ring-offset-2 ring-offset-background transition-shadow"
-                style={{
-                  backgroundColor: c,
-                  outline: color === c ? "2px solid var(--ring)" : "none",
-                }}
-                aria-label={`Pick color ${c}`}
-              />
-            ))}
-          </div>
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto text-muted-foreground hover:text-destructive"
+            className="shrink-0 text-muted-foreground hover:text-destructive"
             onClick={archive}
             disabled={busy}
             aria-label="Archive category"
@@ -135,9 +123,32 @@ function CategoryRow({ category }: { category: Category }) {
           </Button>
         </div>
 
-        <div>
-          <div className="mb-1.5 text-xs text-muted-foreground">Keywords</div>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="space-y-1.5">
+          <div className="text-xs text-muted-foreground">Color</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {SWATCHES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  setColor(c);
+                  setDirty(true);
+                }}
+                className="size-7 rounded-full ring-offset-2 ring-offset-background transition-shadow"
+                style={{
+                  backgroundColor: c,
+                  outline: color === c ? "2px solid var(--ring)" : "none",
+                }}
+                aria-label={`Pick color ${c}`}
+                aria-pressed={color === c}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="text-xs text-muted-foreground">Keywords</div>
+          <div className="flex flex-wrap items-center gap-1.5">
             {keywords.map((k) => (
               <Badge key={k} variant="secondary" className="gap-1 pr-1">
                 {k}
@@ -150,20 +161,18 @@ function CategoryRow({ category }: { category: Category }) {
                 </button>
               </Badge>
             ))}
-            <div className="flex items-center gap-1">
-              <Input
-                value={newKeyword}
-                onChange={(e) => setNewKeyword(e.target.value)}
-                placeholder="add keyword"
-                className="h-7 w-32 text-xs"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addKeyword();
-                  }
-                }}
-              />
-            </div>
+            <Input
+              value={newKeyword}
+              onChange={(e) => setNewKeyword(e.target.value)}
+              placeholder="add keyword"
+              className="h-7 w-32 text-xs"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addKeyword();
+                }
+              }}
+            />
           </div>
         </div>
 
@@ -219,32 +228,46 @@ function NewCategoryRow() {
 
   return (
     <Card>
-      <CardContent className="space-y-3 px-4 py-3">
-        <Input
-          autoFocus
-          placeholder="Category name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") create();
-            if (e.key === "Escape") setOpen(false);
-          }}
-        />
-        <div className="flex items-center gap-1">
-          {SWATCHES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setColor(c)}
-              className="size-5 rounded-full"
-              style={{
-                backgroundColor: c,
-                outline: color === c ? "2px solid var(--ring)" : "none",
-              }}
-              aria-label={`Pick color ${c}`}
-            />
-          ))}
+      <CardContent className="space-y-4 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="size-6 shrink-0 rounded-full ring-1 ring-foreground/10"
+            style={{ backgroundColor: color }}
+          />
+          <Input
+            autoFocus
+            placeholder="Category name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="min-w-0 flex-1"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") create();
+              if (e.key === "Escape") setOpen(false);
+            }}
+          />
         </div>
+
+        <div className="space-y-1.5">
+          <div className="text-xs text-muted-foreground">Color</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {SWATCHES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                className="size-7 rounded-full"
+                style={{
+                  backgroundColor: c,
+                  outline: color === c ? "2px solid var(--ring)" : "none",
+                }}
+                aria-label={`Pick color ${c}`}
+                aria-pressed={color === c}
+              />
+            ))}
+          </div>
+        </div>
+
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
             Cancel

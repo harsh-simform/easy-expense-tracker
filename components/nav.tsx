@@ -7,16 +7,18 @@ import {
   ListOrdered,
   Wallet,
   HandCoins,
+  Briefcase,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transactions", icon: ListOrdered },
-  { href: "/budgets", label: "Budgets", icon: Wallet },
-  { href: "/owed", label: "Owed", icon: HandCoins },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutDashboard },
+  { href: "/transactions", label: "Transactions", short: "Txns", icon: ListOrdered },
+  { href: "/budgets", label: "Budgets", short: "Budgets", icon: Wallet },
+  { href: "/owed", label: "Owed", short: "Owed", icon: HandCoins },
+  { href: "/sources", label: "Sources", short: "Sources", icon: Briefcase },
+  { href: "/settings", label: "Settings", short: "More", icon: Settings },
 ];
 
 export function DesktopSidebar() {
@@ -58,20 +60,20 @@ export function DesktopSidebar() {
 export function MobileBottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-card/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
-      {items.map(({ href, label, icon: Icon }) => {
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t bg-card/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
+      {items.map(({ href, short, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(href + "/");
         return (
           <Link
             key={href}
             href={href}
             className={cn(
-              "flex flex-col items-center justify-center gap-1 py-2 text-xs",
+              "flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px]",
               active ? "text-foreground" : "text-muted-foreground",
             )}
           >
             <Icon className={cn("size-5", active && "text-primary")} />
-            <span>{label}</span>
+            <span className="w-full truncate text-center">{short}</span>
           </Link>
         );
       })}

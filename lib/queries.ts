@@ -8,6 +8,7 @@ import {
 } from "@/lib/format";
 import type {
   Category,
+  IncomeSource,
   Person,
   Transaction,
   TransactionWithCategory,
@@ -22,6 +23,17 @@ export async function listCategories(): Promise<Category[]> {
     .order("sort_order", { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function listIncomeSources(): Promise<IncomeSource[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("income_sources")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as IncomeSource[];
 }
 
 export async function listPeople(): Promise<Person[]> {

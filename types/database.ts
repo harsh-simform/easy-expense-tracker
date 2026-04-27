@@ -138,6 +138,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      income_sources: {
+        Row: {
+          id: string;
+          owner_email: string;
+          kind: "salary" | "sip" | "investment" | "other";
+          label: string;
+          amount: number;
+          active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_email?: string;
+          kind: "salary" | "sip" | "investment" | "other";
+          label: string;
+          amount: number;
+          active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_email?: string;
+          kind?: "salary" | "sip" | "investment" | "other";
+          label?: string;
+          amount?: number;
+          active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       transaction_splits: {
         Row: {
           id: string;
@@ -194,6 +230,9 @@ export type Budget = Database["public"]["Tables"]["budgets"]["Row"];
 export type Person = Database["public"]["Tables"]["people"]["Row"];
 export type TransactionSplit =
   Database["public"]["Tables"]["transaction_splits"]["Row"];
+export type IncomeSource =
+  Database["public"]["Tables"]["income_sources"]["Row"];
+export type IncomeSourceKind = IncomeSource["kind"];
 
 export type SplitWithPerson = TransactionSplit & {
   person: Pick<Person, "id" | "name"> | null;

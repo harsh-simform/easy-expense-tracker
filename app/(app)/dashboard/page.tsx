@@ -3,6 +3,7 @@ import { KpiCard } from "@/components/kpi-card";
 import { CategoryPie } from "@/components/category-pie";
 import { TrendChart } from "@/components/trend-chart";
 import { TransactionList } from "@/components/transaction-list";
+import { SpendingAlert } from "@/components/spending-alert";
 import {
   getKpis,
   getCategoryBreakdown,
@@ -10,17 +11,19 @@ import {
   getCurrentMonthTransactions,
   getOutstandingTotal,
 } from "@/lib/queries";
+import { getSpendingAlert } from "@/lib/spending-alert";
 import { formatINR } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [kpis, breakdown, trend, transactions, outstanding] = await Promise.all([
+  const [kpis, breakdown, trend, transactions, outstanding, alert] = await Promise.all([
     getKpis(),
     getCategoryBreakdown(),
     getDailyTrend(30),
     getCurrentMonthTransactions(),
     getOutstandingTotal(),
+    getSpendingAlert(),
   ]);
 
   const now = new Date();
@@ -31,6 +34,8 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground">{format(now, "MMMM yyyy")}</p>
       </div>
+
+      <SpendingAlert alert={alert} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiCard
