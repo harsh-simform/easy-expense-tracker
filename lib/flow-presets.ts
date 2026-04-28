@@ -24,41 +24,82 @@ import {
 } from "lucide-react";
 import type { FlowDirection, FlowKind } from "@/types/database";
 
+export type FlowGroupKey =
+  | "earned"
+  | "passive"
+  | "savings"
+  | "loans"
+  | "insurance"
+  | "living"
+  | "other";
+
+export type FlowGroup = {
+  key: FlowGroupKey;
+  label: string;
+  hint: string;
+};
+
+export const FLOW_GROUPS: Record<FlowGroupKey, FlowGroup> = {
+  earned: { key: "earned", label: "Earned income", hint: "Salary, bonus, side work" },
+  passive: { key: "passive", label: "Passive income", hint: "Rent, interest, dividends" },
+  savings: { key: "savings", label: "Savings & investments", hint: "SIPs, PPF, NPS, stocks" },
+  loans: { key: "loans", label: "Loans (EMI)", hint: "Home, car, personal, education" },
+  insurance: { key: "insurance", label: "Insurance", hint: "Term, health, mediclaim" },
+  living: { key: "living", label: "Rent & living", hint: "Rent, society, utilities" },
+  other: { key: "other", label: "Other recurring", hint: "Subscriptions, credit card, fees" },
+};
+
+export const INCOME_GROUP_ORDER: FlowGroupKey[] = ["earned", "passive", "other"];
+export const OUTCOME_GROUP_ORDER: FlowGroupKey[] = [
+  "savings",
+  "loans",
+  "insurance",
+  "living",
+  "other",
+];
+
 export type FlowPreset = {
   kind: FlowKind;
   direction: FlowDirection;
+  group: FlowGroupKey;
   label: string;
   hint: string;
   defaultLabel: string;
   icon: LucideIcon;
   tone: string;
   chip: string;
+  starter?: boolean;
 };
 
 export const INCOME_PRESETS: FlowPreset[] = [
   {
     kind: "salary",
     direction: "income",
+    group: "earned",
     label: "Salary",
     hint: "Monthly take-home",
     defaultLabel: "Salary",
     icon: Briefcase,
     tone: "text-emerald-600 dark:text-emerald-400",
     chip: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    starter: true,
   },
   {
     kind: "bonus",
     direction: "income",
+    group: "earned",
     label: "Bonus",
     hint: "Annual / variable",
     defaultLabel: "Annual bonus",
     icon: Gift,
     tone: "text-fuchsia-600 dark:text-fuchsia-400",
     chip: "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400",
+    starter: true,
   },
   {
     kind: "rsu",
     direction: "income",
+    group: "earned",
     label: "RSU / ESOP",
     hint: "Stock vesting",
     defaultLabel: "RSU vesting",
@@ -69,6 +110,7 @@ export const INCOME_PRESETS: FlowPreset[] = [
   {
     kind: "freelance",
     direction: "income",
+    group: "earned",
     label: "Freelance",
     hint: "Side gigs, projects",
     defaultLabel: "Freelance",
@@ -79,6 +121,7 @@ export const INCOME_PRESETS: FlowPreset[] = [
   {
     kind: "consulting",
     direction: "income",
+    group: "earned",
     label: "Consulting",
     hint: "Retainers, advisory",
     defaultLabel: "Consulting",
@@ -89,6 +132,7 @@ export const INCOME_PRESETS: FlowPreset[] = [
   {
     kind: "rental_income",
     direction: "income",
+    group: "passive",
     label: "Rental income",
     hint: "Flat / property rent",
     defaultLabel: "Rental income",
@@ -99,6 +143,7 @@ export const INCOME_PRESETS: FlowPreset[] = [
   {
     kind: "interest_savings",
     direction: "income",
+    group: "passive",
     label: "Savings interest",
     hint: "Bank savings A/C",
     defaultLabel: "Savings interest",
@@ -109,6 +154,7 @@ export const INCOME_PRESETS: FlowPreset[] = [
   {
     kind: "fd_interest",
     direction: "income",
+    group: "passive",
     label: "FD interest",
     hint: "Fixed deposit / RD",
     defaultLabel: "FD interest",
@@ -119,6 +165,7 @@ export const INCOME_PRESETS: FlowPreset[] = [
   {
     kind: "dividend",
     direction: "income",
+    group: "passive",
     label: "Dividend",
     hint: "Stocks, mutual funds",
     defaultLabel: "Dividend",
@@ -129,6 +176,7 @@ export const INCOME_PRESETS: FlowPreset[] = [
   {
     kind: "spouse_contribution",
     direction: "income",
+    group: "other",
     label: "Spouse / household",
     hint: "Shared household income",
     defaultLabel: "Spouse contribution",
@@ -139,6 +187,7 @@ export const INCOME_PRESETS: FlowPreset[] = [
   {
     kind: "other_income",
     direction: "income",
+    group: "other",
     label: "Other",
     hint: "Anything else",
     defaultLabel: "Other income",
@@ -152,16 +201,19 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
   {
     kind: "sip",
     direction: "outcome",
+    group: "savings",
     label: "SIP",
     hint: "Mutual fund SIP",
     defaultLabel: "Mutual fund SIP",
     icon: PiggyBank,
     tone: "text-emerald-600 dark:text-emerald-400",
     chip: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    starter: true,
   },
   {
     kind: "elss",
     direction: "outcome",
+    group: "savings",
     label: "ELSS",
     hint: "Tax-saving SIP",
     defaultLabel: "ELSS",
@@ -172,6 +224,7 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
   {
     kind: "ppf",
     direction: "outcome",
+    group: "savings",
     label: "PPF",
     hint: "Public Provident Fund",
     defaultLabel: "PPF",
@@ -182,6 +235,7 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
   {
     kind: "nps",
     direction: "outcome",
+    group: "savings",
     label: "NPS",
     hint: "National Pension",
     defaultLabel: "NPS",
@@ -192,6 +246,7 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
   {
     kind: "epf_voluntary",
     direction: "outcome",
+    group: "savings",
     label: "VPF",
     hint: "Voluntary EPF top-up",
     defaultLabel: "VPF top-up",
@@ -202,6 +257,7 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
   {
     kind: "rd",
     direction: "outcome",
+    group: "savings",
     label: "RD",
     hint: "Recurring deposit",
     defaultLabel: "Recurring deposit",
@@ -212,6 +268,7 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
   {
     kind: "stocks",
     direction: "outcome",
+    group: "savings",
     label: "Stocks",
     hint: "DIY equity investing",
     defaultLabel: "Stocks",
@@ -222,16 +279,19 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
   {
     kind: "home_loan",
     direction: "outcome",
+    group: "loans",
     label: "Home loan EMI",
     hint: "Housing loan",
     defaultLabel: "Home loan EMI",
     icon: House,
     tone: "text-orange-600 dark:text-orange-400",
     chip: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
+    starter: true,
   },
   {
     kind: "car_loan",
     direction: "outcome",
+    group: "loans",
     label: "Car loan EMI",
     hint: "Auto loan",
     defaultLabel: "Car loan EMI",
@@ -242,6 +302,7 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
   {
     kind: "personal_loan",
     direction: "outcome",
+    group: "loans",
     label: "Personal loan",
     hint: "Unsecured EMI",
     defaultLabel: "Personal loan EMI",
@@ -252,6 +313,7 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
   {
     kind: "education_loan",
     direction: "outcome",
+    group: "loans",
     label: "Education loan",
     hint: "Student loan EMI",
     defaultLabel: "Education loan EMI",
@@ -260,38 +322,45 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
     chip: "bg-pink-500/15 text-pink-700 dark:text-pink-400",
   },
   {
-    kind: "rent",
-    direction: "outcome",
-    label: "Rent",
-    hint: "House rent paid",
-    defaultLabel: "House rent",
-    icon: Home,
-    tone: "text-violet-600 dark:text-violet-400",
-    chip: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
-  },
-  {
     kind: "term_insurance",
     direction: "outcome",
+    group: "insurance",
     label: "Term insurance",
     hint: "Life cover premium",
     defaultLabel: "Term insurance",
     icon: ShieldCheck,
     tone: "text-indigo-600 dark:text-indigo-400",
     chip: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
+    starter: true,
   },
   {
     kind: "health_insurance",
     direction: "outcome",
+    group: "insurance",
     label: "Health insurance",
     hint: "Mediclaim premium",
     defaultLabel: "Health insurance",
     icon: HeartPulse,
     tone: "text-fuchsia-600 dark:text-fuchsia-400",
     chip: "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400",
+    starter: true,
+  },
+  {
+    kind: "rent",
+    direction: "outcome",
+    group: "living",
+    label: "Rent",
+    hint: "House rent paid",
+    defaultLabel: "House rent",
+    icon: Home,
+    tone: "text-violet-600 dark:text-violet-400",
+    chip: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
+    starter: true,
   },
   {
     kind: "society_maintenance",
     direction: "outcome",
+    group: "living",
     label: "Society maintenance",
     hint: "Apartment / society",
     defaultLabel: "Society maintenance",
@@ -300,38 +369,9 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
     chip: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   },
   {
-    kind: "credit_card",
-    direction: "outcome",
-    label: "Credit card",
-    hint: "Recurring CC payment",
-    defaultLabel: "Credit card",
-    icon: CreditCard,
-    tone: "text-purple-600 dark:text-purple-400",
-    chip: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
-  },
-  {
-    kind: "subscription",
-    direction: "outcome",
-    label: "Subscriptions",
-    hint: "Netflix, Spotify, gym…",
-    defaultLabel: "Subscriptions",
-    icon: Tv,
-    tone: "text-sky-600 dark:text-sky-400",
-    chip: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
-  },
-  {
-    kind: "school_fees",
-    direction: "outcome",
-    label: "School fees",
-    hint: "Children's school / tuition",
-    defaultLabel: "School fees",
-    icon: GraduationCap,
-    tone: "text-blue-600 dark:text-blue-400",
-    chip: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
-  },
-  {
     kind: "utilities",
     direction: "outcome",
+    group: "living",
     label: "Utilities",
     hint: "Wifi / mobile / electricity",
     defaultLabel: "Utilities",
@@ -340,8 +380,43 @@ export const OUTCOME_PRESETS: FlowPreset[] = [
     chip: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
   },
   {
+    kind: "subscription",
+    direction: "outcome",
+    group: "other",
+    label: "Subscriptions",
+    hint: "Netflix, Spotify, gym…",
+    defaultLabel: "Subscriptions",
+    icon: Tv,
+    tone: "text-sky-600 dark:text-sky-400",
+    chip: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+    starter: true,
+  },
+  {
+    kind: "credit_card",
+    direction: "outcome",
+    group: "other",
+    label: "Credit card",
+    hint: "Recurring CC payment",
+    defaultLabel: "Credit card",
+    icon: CreditCard,
+    tone: "text-purple-600 dark:text-purple-400",
+    chip: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
+  },
+  {
+    kind: "school_fees",
+    direction: "outcome",
+    group: "other",
+    label: "School fees",
+    hint: "Children's school / tuition",
+    defaultLabel: "School fees",
+    icon: GraduationCap,
+    tone: "text-blue-600 dark:text-blue-400",
+    chip: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+  },
+  {
     kind: "other_outcome",
     direction: "outcome",
+    group: "other",
     label: "Other",
     hint: "Anything else recurring",
     defaultLabel: "Other outcome",
@@ -360,4 +435,19 @@ export function presetFor(kind: FlowKind): FlowPreset {
 
 export function presetsFor(direction: FlowDirection): FlowPreset[] {
   return direction === "income" ? INCOME_PRESETS : OUTCOME_PRESETS;
+}
+
+export function groupOrderFor(direction: FlowDirection): FlowGroupKey[] {
+  return direction === "income" ? INCOME_GROUP_ORDER : OUTCOME_GROUP_ORDER;
+}
+
+export function presetsByGroup(direction: FlowDirection) {
+  const order = groupOrderFor(direction);
+  const result = new Map<FlowGroupKey, FlowPreset[]>();
+  for (const g of order) result.set(g, []);
+  for (const p of presetsFor(direction)) {
+    const arr = result.get(p.group);
+    if (arr) arr.push(p);
+  }
+  return order.map((g) => ({ group: FLOW_GROUPS[g], presets: result.get(g) ?? [] }));
 }

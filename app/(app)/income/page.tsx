@@ -1,19 +1,19 @@
-import Link from "next/link";
-import { ArrowRight, CalendarDays } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { RecurringFlowsManager } from "@/components/recurring-flows-manager";
+import { MoneyFlowSummary } from "@/components/money-flow-summary";
 import { listRecurringFlows, monthlyEquivalent } from "@/lib/queries";
-import { formatINR } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function IncomePage() {
-  const flows = await listRecurringFlows("income");
+  const flows = await listRecurringFlows();
+  const income = flows.filter((f) => f.direction === "income");
 
-  const activeMonthly = flows
-    .filter((f) => f.active)
+  const totalIncome = flows
+    .filter((f) => f.direction === "income" && f.active)
     .reduce((acc, f) => acc + monthlyEquivalent(f), 0);
-  const stoppedMonthly = flows
-    .filter((f) => !f.active)
+  const totalOutflow = flows
+    .filter((f) => f.direction === "outcome" && f.active)
     .reduce((acc, f) => acc + monthlyEquivalent(f), 0);
 
   return (
@@ -21,9 +21,9 @@ export default async function IncomePage() {
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Income</h1>
         <p className="text-sm text-muted-foreground">
-          Recurring money coming in — salary, bonus, freelance, rental, dividends.
-          The dashboard alert uses this minus your outcome to compute your
-          discretionary budget.
+          What lands in your account every month — salary, bonus average, RSU
+          vests, freelance, rent received. The dashboard alert subtracts your
+          recurring outflows from this to know your real spending budget.
         </p>
         <div className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
           <CalendarDays className="size-3.5" />
@@ -31,27 +31,13 @@ export default async function IncomePage() {
         </div>
       </div>
 
-      <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-        <div className="text-xs uppercase tracking-wide text-muted-foreground">
-          Total monthly income
-        </div>
-        <div className="mt-1 text-3xl font-semibold tabular-nums">
-          {formatINR(activeMonthly)}
-        </div>
-        {stoppedMonthly > 0 && (
-          <div className="mt-1 text-xs text-muted-foreground">
-            {formatINR(stoppedMonthly)} stopped (not counted)
-          </div>
-        )}
-        <Link
-          href="/outcome"
-          className="mt-3 inline-flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
-        >
-          Manage outflows <ArrowRight className="size-3" />
-        </Link>
-      </div>
+      <MoneyFlowSummary
+        income={totalIncome}
+        outflow={totalOutflow}
+        emphasize="income"
+      />
 
-      <RecurringFlowsManager direction="income" flows={flows} />
+      <RecurringFlowsManager direction="income" flows={income} />
     </div>
   );
 }

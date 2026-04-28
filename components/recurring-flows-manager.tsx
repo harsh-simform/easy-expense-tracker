@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -10,8 +10,6 @@ import {
   X,
   PauseCircle,
   PlayCircle,
-  TrendingUp,
-  TrendingDown,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,6 +29,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useMediaQuery } from "@/lib/use-media-query";
 import {
   presetFor,
+  presetsByGroup,
   presetsFor,
   type FlowPreset,
 } from "@/lib/flow-presets";
@@ -50,44 +49,90 @@ export function RecurringFlowsManager({
   const [picking, setPicking] = useState(false);
   const [activePreset, setActivePreset] = useState<FlowPreset | null>(null);
 
-  const openPicker = () => {
-    setActivePreset(null);
+  const openPicker = (preset?: FlowPreset) => {
+    setActivePreset(preset ?? null);
     setPicking(true);
   };
 
-  const active = flows.filter((f) => f.active);
-  const stopped = flows.filter((f) => !f.active);
+  const grouped = useMemo(() => {
+    const order = presetsByGroup(direction);
+    const byGroup = new Map<string, RecurringFlow[]>();
+    for (const { group } of order) byGroup.set(group.key, []);
+    const stopped: RecurringFlow[] = [];
+    for (const f of flows) {
+      if (!f.active) {
+        stopped.push(f);
+        continue;
+      }
+      const preset = presetFor(f.kind);
+      const arr = byGroup.get(preset.group);
+      if (arr) arr.push(f);
+    }
+    return { order, byGroup, stopped };
+  }, [direction, flows]);
+
+  const usedKinds = useMemo(() => new Set(flows.map((f) => f.kind)), [flows]);
+  const starterChips = useMemo(
+    () =>
+      presetsFor(direction).filter(
+        (p) => p.starter && !usedKinds.has(p.kind),
+      ),
+    [direction, usedKinds],
+  );
+
+  const isEmpty = flows.length === 0;
 
   return (
     <div className="space-y-5">
-      {flows.length === 0 ? (
-        <EmptyState direction={direction} onAdd={openPicker} />
+      {isEmpty ? (
+        <EmptyState direction={direction} onPick={openPicker} />
       ) : (
         <>
-          {active.length > 0 && (
-            <Section title="Recurring" badge={`${active.length}`}>
-              <div className="space-y-2">
-                {active.map((f) => (
-                  <FlowRow key={f.id} flow={f} />
-                ))}
-              </div>
-            </Section>
+          {starterChips.length > 0 && (
+            <QuickAddRow chips={starterChips} onPick={openPicker} />
           )}
-          {stopped.length > 0 && (
-            <Section title="Stopped" badge={`${stopped.length}`} muted>
-              <div className="space-y-2">
-                {stopped.map((f) => (
+
+          {grouped.order.map(({ group }) => {
+            const items = grouped.byGroup.get(group.key) ?? [];
+            if (items.length === 0) return null;
+            const groupTotal = items.reduce(
+              (a, f) =>
+                a + (f.frequency === "yearly" ? Number(f.amount) / 12 : Number(f.amount)),
+              0,
+            );
+            return (
+              <GroupSection
+                key={group.key}
+                title={group.label}
+                hint={group.hint}
+                count={items.length}
+                total={groupTotal}
+              >
+                {items.map((f) => (
                   <FlowRow key={f.id} flow={f} />
                 ))}
-              </div>
-            </Section>
+              </GroupSection>
+            );
+          })}
+
+          {grouped.stopped.length > 0 && (
+            <GroupSection
+              title="Stopped"
+              hint="Not counted in monthly totals"
+              count={grouped.stopped.length}
+              muted
+            >
+              {grouped.stopped.map((f) => (
+                <FlowRow key={f.id} flow={f} />
+              ))}
+            </GroupSection>
           )}
         </>
       )}
 
-      <Button variant="outline" onClick={openPicker} className="w-full">
+      <Button variant="outline" onClick={() => openPicker()} className="w-full">
         <Plus className="size-4" />
-        Add {direction === "income" ? "income" : "outcome"}
+        Add {direction === "income" ? "income" : "outflow"}
       </Button>
 
       <PresetPickerSheet
@@ -101,68 +146,140 @@ export function RecurringFlowsManager({
   );
 }
 
-function Section({
+function GroupSection({
   title,
-  badge,
+  hint,
+  count,
+  total,
   muted,
   children,
 }: {
   title: string;
-  badge?: string;
+  hint?: string;
+  count: number;
+  total?: number;
   muted?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <section className="space-y-2">
-      <div className="flex items-center gap-2">
-        <h2
-          className={cn(
-            "text-xs font-semibold uppercase tracking-wide",
-            muted ? "text-muted-foreground" : "text-foreground/80",
-          )}
-        >
-          {title}
-        </h2>
-        {badge && (
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <h2
+            className={cn(
+              "text-xs font-semibold uppercase tracking-wide",
+              muted ? "text-muted-foreground" : "text-foreground/80",
+            )}
+          >
+            {title}
+          </h2>
           <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {badge}
+            {count}
+          </span>
+        </div>
+        {total !== undefined && (
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {formatINR(total)}/mo
           </span>
         )}
       </div>
-      {children}
+      {hint && !muted && (
+        <p className="text-[11px] text-muted-foreground">{hint}</p>
+      )}
+      <div className="space-y-2">{children}</div>
     </section>
+  );
+}
+
+function QuickAddRow({
+  chips,
+  onPick,
+}: {
+  chips: FlowPreset[];
+  onPick: (p: FlowPreset) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        Quick add
+      </div>
+      <div className="-mx-1 flex flex-wrap gap-1.5 px-1">
+        {chips.map((p) => {
+          const Icon = p.icon;
+          return (
+            <button
+              key={p.kind}
+              type="button"
+              onClick={() => onPick(p)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs transition-colors hover:border-primary hover:bg-primary/5"
+            >
+              <Icon className={cn("size-3.5", p.tone)} />
+              <span>{p.label}</span>
+              <Plus className="size-3 text-muted-foreground" />
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
 function EmptyState({
   direction,
-  onAdd,
+  onPick,
 }: {
   direction: FlowDirection;
-  onAdd: () => void;
+  onPick: (p?: FlowPreset) => void;
 }) {
-  const Icon = direction === "income" ? TrendingUp : TrendingDown;
-  const tone =
-    direction === "income"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : "text-orange-600 dark:text-orange-400";
+  const starters = presetsFor(direction).filter((p) => p.starter);
   return (
-    <div className="rounded-xl border border-dashed bg-card/40 p-8 text-center">
-      <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-muted">
-        <Icon className={cn("size-5", tone)} />
+    <div className="space-y-4 rounded-xl border border-dashed bg-card/40 p-6">
+      <div className="space-y-1 text-center">
+        <h3 className="text-sm font-semibold">
+          {direction === "income"
+            ? "What's coming in every month?"
+            : "What's auto-debiting every month?"}
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          {direction === "income"
+            ? "Add salary first, then any side income or passive flows."
+            : "SIPs, EMIs, rent, premiums — the things that leave your account on a schedule."}
+        </p>
       </div>
-      <h3 className="text-sm font-semibold">
-        No {direction === "income" ? "income" : "outcome"} added yet
-      </h3>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {direction === "income"
-          ? "Start with your salary, then any side income."
-          : "Add SIPs, EMIs, rent, premiums — anything that auto-debits."}
-      </p>
-      <Button size="sm" className="mt-4" onClick={onAdd}>
-        <Plus className="size-4" />
-        Add your first {direction === "income" ? "source" : "outflow"}
-      </Button>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {starters.map((p) => {
+          const Icon = p.icon;
+          return (
+            <button
+              key={p.kind}
+              type="button"
+              onClick={() => onPick(p)}
+              className="flex flex-col items-start gap-1.5 rounded-lg border border-border bg-card px-3 py-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
+            >
+              <span
+                className={cn("flex size-8 items-center justify-center rounded-md", p.chip)}
+              >
+                <Icon className={cn("size-4", p.tone)} />
+              </span>
+              <div>
+                <div className="text-sm font-medium leading-tight">{p.label}</div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                  {p.hint}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onPick()}
+        className="block w-full text-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+      >
+        See all options →
+      </button>
     </div>
   );
 }
@@ -456,7 +573,7 @@ function PresetPickerSheet({
               ? "Pick how often this happens, then enter the amount."
               : direction === "income"
                 ? "Common income types for IT/corporate employees."
-                : "SIPs, EMIs, premiums, rent — anything that auto-debits."}
+                : "Grouped by purpose — investments, loans, insurance, living."}
           </SheetDescription>
         </SheetHeader>
 
@@ -468,7 +585,7 @@ function PresetPickerSheet({
               onDone={() => onOpenChange(false)}
             />
           ) : (
-            <PresetGrid direction={direction} onPick={setActivePreset} />
+            <GroupedPresetGrid direction={direction} onPick={setActivePreset} />
           )}
         </div>
       </SheetContent>
@@ -476,37 +593,56 @@ function PresetPickerSheet({
   );
 }
 
-function PresetGrid({
+function GroupedPresetGrid({
   direction,
   onPick,
 }: {
   direction: FlowDirection;
   onPick: (p: FlowPreset) => void;
 }) {
-  const presets = presetsFor(direction);
+  const groups = presetsByGroup(direction);
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {presets.map((p) => {
-        const Icon = p.icon;
-        return (
-          <button
-            key={p.kind}
-            type="button"
-            onClick={() => onPick(p)}
-            className="flex flex-col items-start gap-1.5 rounded-lg border border-border bg-card px-3 py-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
-          >
-            <span
-              className={cn("flex size-8 items-center justify-center rounded-md", p.chip)}
-            >
-              <Icon className={cn("size-4", p.tone)} />
-            </span>
+    <div className="space-y-5">
+      {groups.map(({ group, presets }) =>
+        presets.length === 0 ? null : (
+          <div key={group.key} className="space-y-2">
             <div>
-              <div className="text-sm font-medium leading-tight">{p.label}</div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">{p.hint}</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                {group.label}
+              </div>
+              <div className="text-[11px] text-muted-foreground">{group.hint}</div>
             </div>
-          </button>
-        );
-      })}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {presets.map((p) => {
+                const Icon = p.icon;
+                return (
+                  <button
+                    key={p.kind}
+                    type="button"
+                    onClick={() => onPick(p)}
+                    className="flex flex-col items-start gap-1.5 rounded-lg border border-border bg-card px-3 py-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
+                  >
+                    <span
+                      className={cn(
+                        "flex size-8 items-center justify-center rounded-md",
+                        p.chip,
+                      )}
+                    >
+                      <Icon className={cn("size-4", p.tone)} />
+                    </span>
+                    <div>
+                      <div className="text-sm font-medium leading-tight">{p.label}</div>
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">
+                        {p.hint}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ),
+      )}
     </div>
   );
 }
@@ -601,8 +737,8 @@ function CreateForm({
           }}
         />
         <p className="text-[11px] text-muted-foreground">
-          Yearly amounts are auto-converted to a monthly equivalent for the
-          dashboard alert.
+          Yearly amounts auto-convert to a monthly equivalent for the dashboard
+          alert.
         </p>
       </div>
 
